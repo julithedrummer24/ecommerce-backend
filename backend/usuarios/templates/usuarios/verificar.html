@@ -1,0 +1,7 @@
+<h2>Verificación en dos pasos</h2>
+<form method="POST">
+  {% csrf_token %}
+  <input type="text" name="codigo" placeholder="Código de verificación" required><br>
+  <button type="submit">Verificar</button>
+</form>
+{% if error %}<p style="color:red;">{{ error }}</p>{% endif %}
