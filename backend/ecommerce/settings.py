@@ -146,7 +146,6 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'usuarios.Usuario'
 
-
 # variables para envio de correos
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
@@ -155,3 +154,13 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'tu_correo@gmail.com'
 EMAIL_HOST_PASSWORD = 'tu_contraseña'
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+
+# === Email via Mailhog (dev) ===
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = os.getenv("EMAIL_HOST", "mailhog")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", 1025))
+EMAIL_USE_TLS = False
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "no-reply@ecommerce.local")

@@ -24,21 +24,6 @@ def generar_tokens_para_usuario(user):
     }
 
 # para envio de correos (mejorar y provar)
-# class RegisterAPIView(APIView):
-#     permission_classes = [permissions.AllowAny]
-
-#     def post(self, request):
-#         serializer = RegisterSerializer(data=request.data)
-#         if serializer.is_valid():
-#             usuario = serializer.save()
-#             # crear codigo de verificacion contexto 'registro' (6 digitos por defecto)
-#             codigo_obj = CodigoVerificacion.crear_para_usuario(usuario, minutos_validez=5, longitud=6, contexto='registro')
-#             enviar_codigo_por_email(usuario, codigo_obj.codigo)
-#             return Response({'detail': 'Usuario creado. Se envió un código al correo para verificar.'}, status=status.HTTP_201_CREATED)
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-# registro para pruebas class RegisterAPIView(APIView):
 class RegisterAPIView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -46,18 +31,33 @@ class RegisterAPIView(APIView):
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
             usuario = serializer.save()
-            codigo_obj = CodigoVerificacion.crear_para_usuario(
-                usuario, minutos_validez=5, longitud=6, contexto='registro'
-            )
-            
-            return Response({
-                'detail': 'Usuario creado. Código de verificación generado (solo visible para pruebas).',
-                'codigo_verificacion': codigo_obj.codigo,
-                'username': usuario.username,
-                'email': usuario.email
-            }, status=status.HTTP_201_CREATED)
-        
+            # crear codigo de verificacion contexto 'registro' (6 digitos por defecto)
+            codigo_obj = CodigoVerificacion.crear_para_usuario(usuario, minutos_validez=5, longitud=6, contexto='registro')
+            enviar_codigo_por_email(usuario, codigo_obj.codigo)
+            return Response({'detail': 'Usuario creado. Se envió un código al correo para verificar.'}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# # registro para pruebas class RegisterAPIView(APIView):
+# class RegisterAPIView(APIView):
+#     permission_classes = [permissions.AllowAny]
+
+#     def post(self, request):
+#         serializer = RegisterSerializer(data=request.data)
+#         if serializer.is_valid():
+#             usuario = serializer.save()
+#             codigo_obj = CodigoVerificacion.crear_para_usuario(
+#                 usuario, minutos_validez=5, longitud=6, contexto='registro'
+#             )
+            
+#             return Response({
+#                 'detail': 'Usuario creado. Código de verificación generado (solo visible para pruebas).',
+#                 'codigo_verificacion': codigo_obj.codigo,
+#                 'username': usuario.username,
+#                 'email': usuario.email
+#             }, status=status.HTTP_201_CREATED)
+        
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class VerifyRegistrationAPIView(APIView):
@@ -120,3 +120,17 @@ class VerifyLoginAPIView(APIView):
         codigo_obj.save()
         tokens = generar_tokens_para_usuario(usuario)
         return Response({'detail': 'Login verificado correctamente.', 'tokens': tokens}, status=status.HTTP_200_OK)
+
+def enviar_otp(usuario, codigo, motivo):
+    asunto = "Tu código de verificación" if motivo != "registro" else "Activa tu cuenta"
+    mensaje = f"Tu código es: {codigo}. Expira en 5 minutos."
+    enviar_codigo_por_email(usuario.email, asunto, mensaje)
+
+
+
+try:
+    if hasattr(codigo_obj, "usado"):
+        codigo_obj.usado = True
+        codigo_obj.save(update_fields=["usado"])
+except Exception:
+    pass
