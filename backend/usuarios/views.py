@@ -8,6 +8,8 @@ from .serializers import RegisterSerializer, LoginSerializer, VerifySerializer
 from .models import CodigoVerificacion
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.utils.crypto import get_random_string
+from .models import Usuario
 
 User = get_user_model()
 
@@ -126,6 +128,37 @@ def enviar_otp(usuario, codigo, motivo):
     mensaje = f"Tu código es: {codigo}. Expira en 5 minutos."
     enviar_codigo_por_email(usuario.email, asunto, mensaje)
 
+
+
+class ReenviarCodigoAPIView(APIView):
+    def post(self, request):
+        email = request.data.get('email')
+
+        if not email:
+            return Response({'error': 'Debes ingresar un correo.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            usuario = Usuario.objects.get(email=email)
+        except Usuario.DoesNotExist:
+            return Response({'error': 'No existe un usuario con ese correo.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if usuario.verificado:
+            return Response({'message': 'Este usuario ya está verificado.'}, status=status.HTTP_200_OK)
+
+        # Generar nuevo código
+        nuevo_codigo = get_random_string(6, allowed_chars='0123456789')
+        usuario.codigo_verificacion = nuevo_codigo
+        usuario.save()
+
+        send_mail(
+            subject='Nuevo código de verificación',
+            message=f'Tu nuevo código de verificación es: {nuevo_codigo}',
+            from_email='no-reply@ecommerce.com',
+            recipient_list=[usuario.email],
+            fail_silently=False,
+        )
+
+        return Response({'message': 'Se ha reenviado el código correctamente.'}, status=status.HTTP_200_OK)
 
 
 try:
