@@ -1,8 +1,21 @@
 version: "3.9"
 
 services:
+  db:
+    image: postgres:15
+    container_name: ecommerce_db
+    environment:
+      POSTGRES_DB: ecommerce
+      POSTGRES_USER: django
+      POSTGRES_PASSWORD: django123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+
   mailhog:
     image: mailhog/mailhog:latest
+    container_name: ecommerce_mailhog
     ports:
       - "8025:8025"   # Web UI
       - "1025:1025"   # SMTP
@@ -17,18 +30,7 @@ services:
       - "8000:8000"
     depends_on:
       - db
-
-  db:
-    image: postgres:15
-    container_name: ecommerce_db
-    environment:
-      POSTGRES_DB: ecommerce
-      POSTGRES_USER: django
-      POSTGRES_PASSWORD: django123
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data/
+      - mailhog
 
 volumes:
   postgres_data:
