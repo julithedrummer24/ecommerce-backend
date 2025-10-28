@@ -100,30 +100,31 @@ class LoginAPIView(APIView):
                         status=status.HTTP_200_OK)
 
 
-class VerifyLoginAPIView(APIView):
+class VerifyRegistrationAPIView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
-        email = request.data.get('email')
-        code = request.data.get('code')
-
-        if not email or not code:
-            return Response({'detail': 'El correo y el código son requeridos.'},
-                            status=status.HTTP_400_BAD_REQUEST)
+        serializer = VerifySerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        email = serializer.validated_data['email']
+        code = serializer.validated_data['code']
 
         usuario = get_object_or_404(User, email=email)
-        codigo_obj = CodigoVerificacion.objects.filter(usuario=usuario, contexto='login').order_by('-creado_en').first()
+        codigo_obj = CodigoVerificacion.objects.filter(usuario=usuario, contexto='registro').order_by('-creado_en').first()
 
         if not codigo_obj or not codigo_obj.es_valido() or codigo_obj.codigo != code:
-            return Response({'detail': 'Código inválido o expirado.'},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'Código inválido o expirado.'}, status=status.HTTP_400_BAD_REQUEST)
 
         codigo_obj.usado = True
         codigo_obj.save()
-        tokens = generar_tokens_para_usuario(usuario)
+        usuario.is_active = True
+        usuario.save()
 
-        return Response({'detail': 'Login verificado correctamente.', 'tokens': tokens},
-                        status=status.HTTP_200_OK)
+        tokens = generar_tokens_para_usuario(usuario)
+        return Response({'detail': 'Verificado correctamente.', 'tokens': tokens}, status=status.HTTP_200_OK)
+
 
 
 class ReenviarCodigoAPIView(APIView):

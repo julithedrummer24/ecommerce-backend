@@ -8,6 +8,7 @@ class Usuario(AbstractUser):
         ('admin', 'Administrador'),
         ('cliente', 'Cliente'),
     )
+    email = models.EmailField(unique=True)
     rol = models.CharField(max_length=10, choices=ROLES, default='cliente')
 
     def __str__(self):
