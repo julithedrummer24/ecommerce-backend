@@ -131,34 +131,32 @@ def enviar_otp(usuario, codigo, motivo):
 
 
 class ReenviarCodigoAPIView(APIView):
+    permission_classes = [permissions.AllowAny]
+
     def post(self, request):
         email = request.data.get('email')
-
         if not email:
-            return Response({'error': 'Debes ingresar un correo.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'El correo es requerido.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            usuario = Usuario.objects.get(email=email)
-        except Usuario.DoesNotExist:
-            return Response({'error': 'No existe un usuario con ese correo.'}, status=status.HTTP_404_NOT_FOUND)
+        usuario = get_object_or_404(User, email=email)
 
-        if usuario.verificado:
-            return Response({'message': 'Este usuario ya está verificado.'}, status=status.HTTP_200_OK)
+        # si ya está activo, no reenviar
+        if usuario.is_active:
+            return Response({'detail': 'El usuario ya está verificado.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Generar nuevo código
-        nuevo_codigo = get_random_string(6, allowed_chars='0123456789')
-        usuario.codigo_verificacion = nuevo_codigo
-        usuario.save()
-
-        send_mail(
-            subject='Nuevo código de verificación',
-            message=f'Tu nuevo código de verificación es: {nuevo_codigo}',
-            from_email='no-reply@ecommerce.com',
-            recipient_list=[usuario.email],
-            fail_silently=False,
+        # crear nuevo código
+        codigo_obj = CodigoVerificacion.crear_para_usuario(
+            usuario,
+            minutos_validez=5,
+            longitud=6,
+            contexto='registro'
         )
 
-        return Response({'message': 'Se ha reenviado el código correctamente.'}, status=status.HTTP_200_OK)
+        # (por ahora mostramos el código en lugar de enviar correo)
+        return Response({
+            'detail': 'Nuevo código generado exitosamente.',
+            'codigo': codigo_obj.codigo
+        }, status=status.HTTP_200_OK)
 
 
 try:
