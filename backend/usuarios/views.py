@@ -1,25 +1,37 @@
+import uuid
+from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model
-from django.core.mail import send_mail
+from django.core.mail import send_mail, BadHeaderError
 from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
 from .serializers import RegisterSerializer, LoginSerializer, VerifySerializer
 from .models import CodigoVerificacion
-from django.utils import timezone
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.utils.crypto import get_random_string
+
 
 User = get_user_model()
 
 
-def enviar_codigo_por_email(usuario, codigo, asunto= None):
-    subject = "Tu código de verificación"
-    message = f"Hola {usuario.username},\n\nTu código de verificación es: {codigo}\n\nEste código expira en 5 minutos."
-    send_mail(subject, message, None, [usuario.email], fail_silently=False)
+def enviar_codigo_por_email(usuario, codigo, asunto="Tu código de verificación"):
+    """Envía un código de verificación por correo (Mailhog o Gmail)"""
+    subject = asunto
+    message = (
+        f"Hola {usuario.username},\n\n"
+        f"Tu código de verificación es: {codigo}\n\n"
+        "Este código expira en 5 minutos."
+    )
+    try:
+        send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [usuario.email], fail_silently=False)
+    except BadHeaderError:
+        raise ValueError("Cabecera de correo inválida.")
+    except Exception as e:
+        raise ValueError(f"Error al enviar correo: {e}")
 
 
 def generar_tokens_para_usuario(user):
+    """Genera tokens JWT para el usuario."""
     refresh = RefreshToken.for_user(user)
     return {
         'refresh': str(refresh),
@@ -32,43 +44,52 @@ class RegisterAPIView(APIView):
 
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
-        if serializer.is_valid():
-            usuario = serializer.save()
-            codigo_obj = CodigoVerificacion.crear_para_usuario(
-                usuario, minutos_validez=5, longitud=6, contexto='registro'
-            )
-            enviar_codigo_por_email(usuario, codigo_obj.codigo)
-            return Response({'detail': 'Usuario creado. Se envió un código al correo para verificar.'},
-                            status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        usuario = serializer.save()
+        codigo_obj = CodigoVerificacion.crear_para_usuario(
+            usuario, minutos_validez=5, longitud=6, contexto='registro'
+        )
+
+        try:
+            enviar_codigo_por_email(usuario, codigo_obj.codigo, asunto="Activa tu cuenta")
+        except Exception as e:
+            return Response({'detail': f'No se pudo enviar el correo: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        body = {'detail': 'Usuario creado. Se envió un código al correo para verificar.'}
+        if getattr(settings, "DEBUG", False):
+            body['codigo'] = codigo_obj.codigo  # visible en desarrollo
+
+        return Response(body, status=status.HTTP_201_CREATED)
 
 
 class VerifyRegistrationAPIView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
-        email = request.data.get('email')
-        code = request.data.get('code')
+        serializer = VerifySerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        if not email or not code:
-            return Response({'detail': 'El correo y el código son requeridos.'},
-                            status=status.HTTP_400_BAD_REQUEST)
+        email = serializer.validated_data['email']
+        code = serializer.validated_data['code']
 
         usuario = get_object_or_404(User, email=email)
-        codigo_obj = CodigoVerificacion.objects.filter(usuario=usuario, contexto='registro').order_by('-creado_en').first()
+        codigo_obj = CodigoVerificacion.objects.filter(
+            usuario=usuario, contexto='registro'
+        ).order_by('-creado_en').first()
 
         if not codigo_obj or not codigo_obj.es_valido() or codigo_obj.codigo != code:
-            return Response({'detail': 'Código inválido o expirado.'},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'Código inválido o expirado.'}, status=status.HTTP_400_BAD_REQUEST)
 
         codigo_obj.usado = True
         codigo_obj.save()
         usuario.is_active = True
-        usuario.save()
+        usuario.save(update_fields=['is_active'])
 
         tokens = generar_tokens_para_usuario(usuario)
-        return Response({'detail': 'Usuario verificado correctamente.', 'tokens': tokens},
-                        status=status.HTTP_200_OK)
+        return Response({'detail': 'Usuario verificado correctamente.', 'tokens': tokens}, status=status.HTTP_200_OK)
 
 
 class LoginAPIView(APIView):
@@ -81,7 +102,6 @@ class LoginAPIView(APIView):
 
         email = serializer.validated_data.get('email')
         password = serializer.validated_data.get('password')
-
         usuario = get_object_or_404(User, email=email)
 
         user = authenticate(request, username=usuario.username, password=password)
@@ -89,66 +109,44 @@ class LoginAPIView(APIView):
             return Response({'detail': 'Credenciales inválidas.'}, status=status.HTTP_401_UNAUTHORIZED)
 
         if not user.is_active:
-            return Response({'detail': 'Usuario no verificado. Verifica tu correo.'},
-                            status=status.HTTP_403_FORBIDDEN)
+            return Response({'detail': 'Usuario no verificado. Verifica tu correo.'}, status=status.HTTP_403_FORBIDDEN)
 
-        # crear código de login
+        # Crear código de login
         codigo_obj = CodigoVerificacion.crear_para_usuario(user, minutos_validez=5, longitud=6, contexto='login')
-        enviar_codigo_por_email(user, codigo_obj.codigo)
 
-        return Response({'detail': 'Código de acceso enviado al correo. Usa /verify-login/ para completar.'},
-                        status=status.HTTP_200_OK)
+        try:
+            enviar_codigo_por_email(user, codigo_obj.codigo, asunto="Código de acceso")
+        except Exception as e:
+            return Response({'detail': f'No se pudo enviar el correo: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        body = {'detail': 'Código de acceso enviado al correo. Usa /verify-login/ para completar.'}
+        if getattr(settings, "DEBUG", False):
+            body['codigo'] = codigo_obj.codigo  # visible solo en desarrollo
+        return Response(body, status=status.HTTP_200_OK)
 
 
-class VerifyRegistrationAPIView(APIView):
+class VerifyLoginAPIView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
         serializer = VerifySerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
+
         email = serializer.validated_data['email']
         code = serializer.validated_data['code']
 
         usuario = get_object_or_404(User, email=email)
-        codigo_obj = CodigoVerificacion.objects.filter(usuario=usuario, contexto='registro').order_by('-creado_en').first()
+        codigo_obj = CodigoVerificacion.objects.filter(usuario=usuario, contexto='login').order_by('-creado_en').first()
 
         if not codigo_obj or not codigo_obj.es_valido() or codigo_obj.codigo != code:
             return Response({'detail': 'Código inválido o expirado.'}, status=status.HTTP_400_BAD_REQUEST)
 
         codigo_obj.usado = True
         codigo_obj.save()
-        usuario.is_active = True
-        usuario.save()
 
         tokens = generar_tokens_para_usuario(usuario)
-        return Response({'detail': 'Verificado correctamente.', 'tokens': tokens}, status=status.HTTP_200_OK)
-
-class VerifyLoginAPIView(APIView):
-    permission_classes = [permissions.AllowAny]
-
-    def post(self, request):
-        email = request.data.get('email')
-        code = request.data.get('code')
-
-        if not email or not code:
-            return Response({'detail': 'El correo y el código son requeridos.'},
-                            status=status.HTTP_400_BAD_REQUEST)
-
-        usuario = get_object_or_404(User, email=email)
-        codigo_obj = CodigoVerificacion.objects.filter(usuario=usuario, contexto='login').order_by('-creado_en').first()
-
-        if not codigo_obj or not codigo_obj.es_valido() or codigo_obj.codigo != code:
-            return Response({'detail': 'Código inválido o expirado.'},
-                            status=status.HTTP_400_BAD_REQUEST)
-
-        codigo_obj.usado = True
-        codigo_obj.save()
-
-        tokens = generar_tokens_para_usuario(usuario)
-        return Response({'detail': 'Inicio de sesión verificado correctamente.', 'tokens': tokens},
-                        status=status.HTTP_200_OK)
+        return Response({'detail': 'Inicio de sesión verificado correctamente.', 'tokens': tokens}, status=status.HTTP_200_OK)
 
 
 class ReenviarCodigoAPIView(APIView):
@@ -165,13 +163,16 @@ class ReenviarCodigoAPIView(APIView):
             return Response({'detail': 'El usuario ya está verificado.'}, status=status.HTTP_400_BAD_REQUEST)
 
         codigo_obj = CodigoVerificacion.crear_para_usuario(
-            usuario,
-            minutos_validez=5,
-            longitud=6,
-            contexto='registro'
+            usuario, minutos_validez=5, longitud=6, contexto='registro'
         )
 
-        return Response({
-            'detail': 'Nuevo código generado exitosamente.',
-            'codigo': codigo_obj.codigo
-        }, status=status.HTTP_200_OK)
+        try:
+            enviar_codigo_por_email(usuario, codigo_obj.codigo, asunto="Reenvío de código de verificación")
+        except Exception as e:
+            return Response({'detail': f'No se pudo enviar el correo: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        body = {'detail': 'Nuevo código generado y enviado al correo.'}
+        if getattr(settings, "DEBUG", False):
+            body['codigo'] = codigo_obj.codigo
+
+        return Response(body, status=status.HTTP_200_OK)
