@@ -9,25 +9,40 @@ from rest_framework import status, permissions
 from .serializers import RegisterSerializer, LoginSerializer, VerifySerializer
 from .models import CodigoVerificacion
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.core.mail import EmailMessage
+from django.core.mail import EmailMessage, BadHeaderError
 
 
 User = get_user_model()
 
 
+
 def enviar_codigo_por_email(usuario, codigo, asunto="Tu código de verificación"):
-    """Envía un código de verificación por correo (Mailhog o Gmail)"""
-    subject = asunto
+    """
+    Envía un correo de verificación en formato UTF-8 (compatible con ñ, tildes, etc.)
+    """
+    subject = str(asunto)
     message = (
         f"Hola {usuario.username},\n\n"
         f"Tu código de verificación es: {codigo}\n\n"
         "Este código expira en 5 minutos."
     )
     try:
-        send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [usuario.email], fail_silently=False)
+        email = EmailMessage(
+            subject=subject,
+            body=message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[usuario.email],
+        )
+        email.content_subtype = "plain"
+        email.encoding = "utf-8"
+        email.send(fail_silently=False)
     except BadHeaderError:
         raise ValueError("Cabecera de correo inválida.")
     except Exception as e:
         raise ValueError(f"Error al enviar correo: {e}")
+
+
 
 
 def generar_tokens_para_usuario(user):

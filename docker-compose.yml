@@ -13,12 +13,12 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data/
 
-  mailhog:
-    image: mailhog/mailhog:latest
-    container_name: ecommerce_mailhog
-    ports:
-      - "8025:8025"   # Web UI
-      - "1025:1025"   # SMTP
+  # mailhog:
+  #   image: mailhog/mailhog:latest
+  #   container_name: ecommerce_mailhog
+  #   ports:
+  #     - "8025:8025"   # Web UI
+  #     - "1025:1025"   # SMTP
 
   web:
     build: .
@@ -30,7 +30,7 @@ services:
       - "8000:8000"
     depends_on:
       - db
-      - mailhog
+      # - mailhog
 
 volumes:
   postgres_data:
