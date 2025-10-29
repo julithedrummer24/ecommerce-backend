@@ -13,7 +13,7 @@ from django.utils.crypto import get_random_string
 User = get_user_model()
 
 
-def enviar_codigo_por_email(usuario, codigo):
+def enviar_codigo_por_email(usuario, codigo, asunto= None):
     subject = "Tu código de verificación"
     message = f"Hola {usuario.username},\n\nTu código de verificación es: {codigo}\n\nEste código expira en 5 minutos."
     send_mail(subject, message, None, [usuario.email], fail_silently=False)
