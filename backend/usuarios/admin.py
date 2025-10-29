@@ -18,6 +18,6 @@ class UsuarioAdmin(UserAdmin):
 
 @admin.register(CodigoVerificacion)
 class CodigoVerificacionAdmin(admin.ModelAdmin):
-    list_display = ('usuario', 'codigo', 'contexto', 'usado', 'creado_en', 'expira_en')
+    list_display = ('usuario', 'codigo', 'contexto', 'usado', 'creado_en', 'expira')
     search_fields = ('usuario__email', 'codigo')
     list_filter = ('contexto', 'usado')
