@@ -18,5 +18,8 @@ RUN pip install psycopg2-binary
 # Copiar el código del proyecto
 COPY . /app/
 
+COPY wait_for_db.sh /wait_for_db.sh
+RUN chmod +x /wait_for_db.sh
+
 # Comando por defecto
-CMD ["python", "backend/manage.py", "runserver", "0.0.0.0:8000"]
+CMD ["wait_for_db.sh","python", "backend/manage.py", "runserver", "0.0.0.0:8000"]

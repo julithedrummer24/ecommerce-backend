@@ -25,3 +25,10 @@ class LoginSerializer(serializers.Serializer):
 class VerifySerializer(serializers.Serializer):
     email = serializers.EmailField()
     code = serializers.CharField()
+
+
+# visualizar usuarios creados
+class UsuarioListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Usuario
+        fields = ['id', 'username', 'email', 'rol']

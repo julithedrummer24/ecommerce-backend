@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'usuarios',
+    'core',
 ]
 
 MIDDLEWARE = [
@@ -158,3 +159,9 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'tucorreo@gmail.com'
 EMAIL_HOST_PASSWORD = 'tu_contraseña_de_aplicacion'
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+
+# credenciales del admin
+ADMIN_EMAIL = "admin@myventas.com"
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "admin123"
