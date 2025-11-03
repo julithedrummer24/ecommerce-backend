@@ -14,6 +14,12 @@ from .models import Usuario
 from rest_framework.decorators import api_view, permission_classes
 import logging
 
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+
+
 User = get_user_model()
 logger = logging.getLogger(__name__)
 
