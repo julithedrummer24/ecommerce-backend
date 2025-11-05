@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAdminUser
 from django.contrib.auth import get_user_model
-from .serializers import RegisterSerializer, LoginSerializer, VerifySerializer, UsuarioListSerializer
+from .serializers import RegisterSerializer, LoginSerializer, VerifySerializer, UsuarioListSerializer, UpdateUsuarioSerializer
 from .models import CodigoVerificacion
 from .models import Usuario
 from rest_framework.decorators import api_view, permission_classes
@@ -174,3 +174,15 @@ def eliminar_usuario(request, user_id):
         return Response({'message': 'Usuario eliminado correctamente.'}, status=200)
     except Usuario.DoesNotExist:
         return Response({'error': 'Usuario no encontrado.'}, status=404)
+
+
+class UpdateUsuarioView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def put(self, request):
+        usuario = request.user
+        serializer = UpdateUsuarioSerializer(usuario, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'message': 'Usuario actualizado correctamente'})
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

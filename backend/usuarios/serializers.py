@@ -6,13 +6,14 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Usuario
-        fields = ('username', 'email', 'password', 'rol')
+        fields = ('username', 'email', 'password')
 
     def create(self, validated_data):
         password = validated_data.pop('password')
         usuario = Usuario(**validated_data)
         usuario.set_password(password)
         usuario.is_active = False
+        usuario.rol= "cliente"
         usuario.save()
         return usuario
 
@@ -32,3 +33,21 @@ class UsuarioListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Usuario
         fields = ['id', 'username', 'email', 'rol']
+
+
+class UpdateUsuarioSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, required=False, min_length=6)
+
+    class Meta:
+        model = Usuario
+        fields = ['username', 'password']
+
+    def update(self, instance, validated_data):
+        username = validated_data.get('username', instance.username)
+        password = validated_data.get('password', None)
+
+        instance.username = username
+        if password:
+            instance.set_password(password)
+        instance.save()
+        return instance

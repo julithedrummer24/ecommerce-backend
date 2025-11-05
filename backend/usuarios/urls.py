@@ -8,4 +8,5 @@ urlpatterns = [
     path('delete-account/', views.DeleteUserAPIView.as_view(), name='delete_account'),
     path('listar/', views.listar_usuarios, name='listar_usuarios'),
     path('eliminar/<int:user_id>/', views.eliminar_usuario, name='eliminar_usuario'),
+    path('usuario/update/', views.UpdateUsuarioView.as_view(), name='update_usuario'),
 ]
