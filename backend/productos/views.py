@@ -5,6 +5,8 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from .models import Categoria, Producto
 from .serializers import CategoriaSerializer, ProductoSerializer
 from usuarios.permissions import EsAdmin
+from django.conf import settings
+from django.core.mail import send_mail
 
 
 
@@ -96,3 +98,52 @@ def productos_por_categoria(request, categoria_id):
         'categoria': categoria.nombre,
         'productos': serializer.data
     })
+
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, EsAdmin])
+def inventario_admin(request):
+    try:
+        lineas_stock = []
+        
+        for producto in Producto.objects.select_related("categoria").all():
+            if producto.stock == 0:
+                estado = "AGOTADO"
+            elif producto.stock <= 2:
+                estado = "CASI AGOTADO"
+            else:
+                estado = "OK"
+
+            lineas_stock.append(
+                f"- {producto.nombre.upper()} ({producto.categoria.nombre.upper()}): "
+                f"stock {producto.stock} -> {estado.upper()}"
+            )
+
+        cuerpo_stock = (
+            "📦 Estado actual del catálogo de productos\n\n"
+            + "\n".join(lineas_stock)
+        )
+        
+        # Enviar email
+        send_mail(
+            subject="📦 Estado actual del catálogo",
+            message=cuerpo_stock,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[settings.ADMIN_EMAIL],
+            fail_silently=False,
+        )
+        
+        return Response(
+            {
+                "detail": "Estado De Stock enviado al correo.",
+                "status": "success"
+            },
+            status=200,
+        )
+        
+    except Exception as e:
+        return Response(
+            {"error": f"Error al procesar: {str(e)}", "status": "error"},
+            status=500,
+        )

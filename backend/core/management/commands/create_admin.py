@@ -12,15 +12,29 @@ class Command(BaseCommand):
         admin_username = getattr(settings, "ADMIN_USERNAME", "admin")
         admin_password = getattr(settings, "ADMIN_PASSWORD", "admin123")
 
-        if not User.objects.filter(email=admin_email).exists():
-            User.objects.create_superuser(
-                username=admin_username,
-                email=admin_email,
-                password=admin_password,
-                is_staff=True,
-                is_superuser=True,
-                rol="admin"
-            )
-            self.stdout.write(self.style.SUCCESS(f"✅ Superusuario creado: {admin_email} / {admin_password}"))
-        else:
-            self.stdout.write(self.style.WARNING(f"ℹ️ El superusuario {admin_email} ya existe."))
+        # Validar por username O por email (cualquiera)
+        if User.objects.filter(username=admin_username).exists():
+            self.stdout.write(self.style.WARNING(
+                f"Ya existe un usuario con username '{admin_username}', no se creará otro."
+            ))
+            return
+        
+        if User.objects.filter(email=admin_email).exists():
+            self.stdout.write(self.style.WARNING(
+                f"Ya existe un usuario con email '{admin_email}', no se creará otro."
+            ))
+            return
+
+        # Crear el superusuario correcto
+        User.objects.create_superuser(
+            username=admin_username,
+            email=admin_email,
+            password=admin_password,
+            is_staff=True,
+            is_superuser=True,
+            rol="admin"
+        )
+
+        self.stdout.write(self.style.SUCCESS(
+            f"✅ Superusuario creado correctamente: {admin_email}"
+        ))

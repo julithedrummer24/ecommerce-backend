@@ -13,20 +13,15 @@ from .models import CodigoVerificacion
 from .models import Usuario
 from rest_framework.decorators import api_view, permission_classes
 import logging
-
 import os
 from dotenv import load_dotenv
 load_dotenv()
 
 
-
 User = get_user_model()
 logger = logging.getLogger(__name__)
 
-# ==== FUNCIONES AUXILIARES ====
-
 def enviar_codigo_por_email(usuario, codigo, asunto="Código de verificación"):
-    """Envía el código de verificación por correo (UTF-8, compatible con tildes y ñ)."""
     subject = str(asunto)
     message = (
         f"Hola {usuario.username},\n\n"
@@ -50,14 +45,12 @@ def enviar_codigo_por_email(usuario, codigo, asunto="Código de verificación"):
 
 
 def generar_tokens_para_usuario(user):
-    """Genera tokens JWT para un usuario."""
     refresh = RefreshToken.for_user(user)
     return {
         "refresh": str(refresh),
         "access": str(refresh.access_token),
     }
 
-# ==== VISTAS PRINCIPALES ====
 
 class RegisterAPIView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -137,7 +130,6 @@ class LoginAPIView(APIView):
 
 
 class DeleteUserAPIView(APIView):
-    """Permite eliminar cuenta propia o, si es admin, la de cualquier usuario."""
     permission_classes = [permissions.IsAuthenticated]
 
     def delete(self, request):

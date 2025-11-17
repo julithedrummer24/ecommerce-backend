@@ -25,7 +25,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-5wzm=bur)&9+$m@6vfe%ehtbc&yu=l1(@6)8k4862!w@0wa&tv'
+SECRET_KEY = config('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -164,7 +164,12 @@ DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default=EMAIL_HOST_USER)
 
 
 
-# credenciales del admin
-ADMIN_EMAIL = "admin@myventas.com"
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "admin123"
+# # credenciales del admin
+# ADMIN_EMAIL = "admin@myventas.com"
+# ADMIN_USERNAME = "admin"
+# ADMIN_PASSWORD = "admin123"
+
+
+ADMIN_EMAIL = config('ADMIN_EMAIL', default=EMAIL_HOST_USER)
+ADMIN_USERNAME = config('ADMIN_USERNAME', default='admin')
+ADMIN_PASSWORD = config('ADMIN_PASSWORD', default='admin123')
